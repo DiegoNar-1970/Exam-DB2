@@ -1,0 +1,65 @@
+CREATE TABLE mines(
+    mine_id NUMBER PRIMARY KEY,
+    mine_name VARCHAR2(20),
+    product_id NUMBER,
+    FOREIGN KEY (product_id) REFERENCES products(id_producto)
+);
+CREATE TABLE products (
+    id_producto NUMBER PRIMARY KEY,
+    product_name VARCHAR2(255)
+);
+CREATE TABLE deaths(
+    deaths_id NUMBER PRIMARY KEY,
+    type_death VARCHAR2(100)
+);
+
+CREATE TABLE persons(
+    persons_id NUMBER PRIMARY KEY,
+    name VARCHAR(50),
+    lastname VARCHAR(50),
+    sex CHAR,
+    birthdate DATE
+);
+
+
+CREATE TABLE persons_defuntions(
+    id_defuntions NUMBER(10) PRIMARY KEY,
+    fecha_date DATE,
+    persons_id NUMBER,
+    FOREIGN KEY (persons_id) REFERENCES persons(persons_id),
+    deaths_id NUMBER,
+    FOREIGN KEY (deaths_id) REFERENCES deaths(deaths_id)
+);
+
+
+CREATE TABLE diagnostics(
+    id_diagnostics NUMBER(10) PRIMARY KEY,
+    diagnosty varchar2(50),
+    description_diagnostics varchar2(100)
+);
+
+CREATE TABLE product_worker(
+    id_product_worker NUMBER(10) PRIMARY KEY,
+    producst_id NUMBER,
+    FOREIGN KEY (producst_id) REFERENCES products(id_producto),
+    persons_id NUMBER,
+    FOREIGN KEY (persons_id) REFERENCES persons(persons_id),
+    kg_product NUMBER(10)
+);
+
+CREATE TABLE persons_medical_check(
+    id_persons_medical_check NUMBER(10) PRIMARY KEY,
+    persons_id NUMBER,
+    diagnostics_id NUMBER,
+    FOREIGN KEY (persons_id) REFERENCES persons(persons_id),
+    FOREIGN KEY (diagnostics_id) REFERENCES diagnostics(id_diagnostics)
+);
+
+CREATE TABLE workers(
+    id_workers NUMBER(10) PRIMARY KEY,
+    mines_id NUMBER,
+    FOREIGN KEY (mines_id) REFERENCES mines(mine_id),
+    persons_id NUMBER,
+    FOREIGN KEY (persons_id) REFERENCES persons(persons_id),
+    ingressDate date
+);

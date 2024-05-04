@@ -1,0 +1,196 @@
+1)Generar una función que retorne cuantos años tiene una persona.
+
+SET SERVEROUTPUT ON;
+CREATE OR REPLACE FUNCTION calc_edad(id_persons persons.persons_id%type)
+return number
+    IS
+        var_edad NUMBER;
+        BEGIN   
+            SELECT EXTRACT(YEAR FROM CURRENT_DATE)-EXTRACT(YEAR FROM birthdate) 
+            INTO var_edad
+            FROM PERSONS WHERE persons_id=id_persons;
+        RETURN var_edad;
+END calc_edad;
+
+SELECT CALC_EDAD(1) from dual
+
+
+SELECT CALC_EDAD(1) from dual
+2)2 - los niños y viejos y enfermos no pueden trabajar en la mina. por ello cree un trigger que
+sea capaz de garantizar que ningún empleado viole esas restricciones.
+Nota: niño es considerado inferior a 12 años y un viejo es alguien mayor de 70 años
+Recuerda que no se admiten personas enfermas
+CREATE OR REPLACE TRIGGER validar_ingreso
+before insert or update
+ON workers
+FOR EACH ROW
+    DECLARE
+        var_edad NUMBER;
+        var_healthy NUMBER;
+        BEGIN
+            SELECT EXTRACT(YEAR FROM CURRENT_DATE)-EXTRACT(YEAR FROM BIRTHDATE)
+                INTO var_edad FROM PERSONS 
+                    WHERE persons_id=:NEW.persons_id;
+            SELECT diagnostics_id into var_healthy
+                from persons_medical_check
+                    where persons_id=:NEW.persons_id;
+            IF(var_healthy!=1) then
+                raise_application_error(-20001,'La persona con el id' || :NEW.persons_id || 'NO ESTA EN CONDICIONES');
+            END IF;
+            IF(var_edad<12 OR var_edad>70) then
+                raise_application_error(-20001,'La PERSONA CON EL ID ' || :NEW.persons_id || 'NO PUEDE SER UN TRABAJADOR');
+            END IF;
+            
+    END validar_ingreso;
+
+3 Cree un procedimiento que registre un trabajador. tabla: workers Nota: validar que la
+persona exista antes de registrar como trabajador.
+
+CREATE OR REPLACE PROCEDURE validarIngresoWorkers(
+var_idWorkers WORKERS.id_workers%type,
+var_personsId WORKERS.persons_id%type,
+var_minesId WORKERS.mines_id%type
+)
+    IS
+        idPerson_temp number;
+    BEGIN
+        BEGIN
+            SELECT persons_id INTO idPerson_temp  FROM persons WHERE persons_id=var_personsId;
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                raise_application_error(-20001,'NO SE ENCUENTRAN REGISTROS DE LA PERSONA ' || var_personsId);
+            END;
+        IF (idPerson_temp!=0)THEN
+            insert into workers  VALUES(var_idWorkers,var_personsId,var_minesId,SYSDATE);
+                DBMS_OUTPUT.PUT_LINE('Registrado Correctamente');
+        END IF;
+    END validarIngresoWorkers;
+    
+execute validarIngresoWorkers(10021,20000,1);
+insert into persons_medical_check  VALUES(801,1,2);
+insert into workers VALUES(1001,1,0,TO_DATE('2023-11-2', 'yyyy/mm/dd'));
+4- crear un cursor que muestre el id, nombre, apellido, fecha de nacimiento de todas las
+mujeres que trabajan en una mina, la mina debe ser indicada por entrada de teclado.
+RT// set SERVEROUTPUT on
+
+DECLARE
+  v_mines_id NUMBER(10);
+  CURSOR c_cursor IS
+    SELECT p.persons_id, p.name, p.lastname, p.birthdate
+    FROM persons p
+    INNER JOIN workers w ON p.persons_id = w.persons_id
+    WHERE p.sex = 'F'
+    AND w.mines_id = v_mines_id;
+BEGIN
+  DBMS_OUTPUT.PUT_LINE('Ingrese el ID de la mina: ');
+  v_mines_id := &INGRESA_EL_ID_DE_LA_MINA;
+  FOR i IN c_cursor
+  LOOP
+    DBMS_OUTPUT.PUT_LINE('ID:'||i.persons_id);
+    DBMS_OUTPUT.PUT_LINE('NAME:'||i.name);
+    DBMS_OUTPUT.PUT_LINE('LASTNAME:'||i.lastname);
+    DBMS_OUTPUT.PUT_LINE('BIRTHDATE:'||i.birthdate);
+    DBMS_OUTPUT.PUT_LINE('------------------------');
+  END LOOP;
+END;
+5 5 - crear una función que retorne si un trabajador está vivo o muerto
+//RT 
+CREATE OR REPLACE FUNCTION deadOrLive(
+var_personId persons_defuntions.persons_id%type
+)
+RETURN VARCHAR2
+IS  
+    tipe_death NUMBER;
+    deadOrNoet VARCHAR(100);
+    BEGIN
+        SELECT DEATHS_ID INTO tipe_death FROM persons_defuntions 
+        WHERE persons_id=var_personId;
+        IF(tipe_death>=1 AND tipe_death<=5)THEN
+            deadOrNoet:='EL USUARIO ESTA MUERTO';
+        END IF;
+        RETURN deadOrNoet;
+        EXCEPTION
+            WHEN NO_DATA_FOUND  THEN
+            tipe_death:=0;
+            deadOrNoet:='EL USUARIO ESTA VIVO';
+            RETURN deadOrNoet;
+END deadOrLive ;
+
+SELECT deadOrLive(1)FROM DUAL ;
+SELECT deadOrLive(135)FROM DUAL ;
+6- crear una función que retorne la cantidad de kilos que produce de una mina.
+CREATE OR REPLACE FUNCTION kilsMina(id_mina mines.mine_id%TYPE)
+RETURN NUMBER
+    IS 
+      cantKgMina NUMBER;
+    BEGIN
+      select sum(p.kg_product) into cantKgMina
+      from product_worker p 
+      inner join  mines m  on p.producst_id=m.mine_id 
+      where producst_id= id_mina;
+    RETURN cantKgMina;
+END  kilsMina;
+
+select kilsMina(1)from dual
+
+7 - Generar un CURSOR de trabajadores que muestre:
+id, nombre, apellido, sexo, edad
+de todos los menores de edad que han muerto.
+set SERVEROUTPUT on;
+DECLARE
+    var_id persons.persons_id%type;
+    var_name persons.name%type;
+    var_lastname persons.lastname%type;
+    var_sex persons.sex%type;
+    var_age number;
+    CURSOR cu_cursor IS
+        SELECT p.persons_id,p.name,p.lastname,p.sex,
+        EXTRACT(year from current_date) - EXTRACT(year from birthdate)
+        FROM persons p
+        INNER JOIN workers w on p.persons_id = w.persons_id
+        INNER JOIN persons_defuntions pf
+        ON W.persons_id =pf.persons_id
+        WHERE extract(year from current_date) - extract(year from birthdate) < 18;
+BEGIN
+    OPEN cu_cursor ;
+    LOOP
+        FETCH cu_cursor INTO var_id,var_name,
+            var_lastname,var_sex,var_age;
+            EXIT WHEN cu_cursor%NOTFOUND;
+            dbms_output.put_line(
+            ' ID: '|| var_id || ' NAME: ' || var_name
+            ||' LASTNAME: '|| var_lastname || ' SEX: ' ||
+            var_sex || ' AGE: ' || var_age
+            );
+    END LOOP;
+END;
+8 - Generar un procedimiento que dando el nombre una mina que se ingresa por teclado
+retorne la cantidad de trabajadores infectados con VIH.
+RT//
+CREATE OR REPLACE PROCEDURE infectionsVIH(var_mine mines.mine_name%type)
+AS
+    varCantVih NUMBER;
+    BEGIN
+        select COUNT(*)into varCantVih 
+        from workers  w
+        inner join persons p on w.persons_id=p.persons_id
+        inner join persons_medical_check pmc on pmc.persons_id=w.persons_id and pmc.diagnostics_id=1
+        inner join mines m on w.mines_id=m.mine_id where mine_name=var_mine;
+        dbms_output.put_line('LA CANTIDAD DE INFECTADOS CON VIH ES DE :'||varCantVih);
+END infectionsVIH;
+EXECUTE infectionsVIH('Cameroon')
+9
+RT//
+select p.name, m.mine_name,max(pw.kg_product) from product_worker pw
+inner join persons p on pw.persons_id=p.persons_id 
+inner join mines m on pw.producst_id=m.mine_id group by m.mine_name,p.name;
+
+SELECT p.name, m.mine_name, pw.kg_product
+FROM (
+    SELECT producst_id, MAX(kg_product) as max_kg
+    FROM product_worker
+    GROUP BY producst_id
+) max_prod
+INNER JOIN product_worker pw ON max_prod.producst_id = pw.producst_id AND max_prod.max_kg = pw.kg_product
+INNER JOIN persons p ON pw.persons_id = p.persons_id
+INNER JOIN mines m ON pw.producst_id = m.mine_id
